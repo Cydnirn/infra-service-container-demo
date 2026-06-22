@@ -2,6 +2,23 @@
 
 Use this checklist to track your progress as you deploy the pre-built application containers onto AWS infrastructure using Terraform and subsequently refactor the infrastructure into reusable modules.
 
+## Tips to configure Terraform Backend
+**Option A** — Edit the placeholders directly:
+```hcl
+backend "s3" {
+  bucket         = "my-lab-state-bucket"
+  region         = "us-east-1"
+  dynamodb_table = "my-lab-lock-table"
+}
+```
+
+**Option B** — CLI overrides (no file editing needed):
+```bash
+terraform init \
+  -backend-config="bucket=my-lab-state-bucket" \
+  -backend-config="dynamodb_table=my-lab-lock-table"
+```
+
 ## Phase 1: AWS Infrastructure Provisioning (Monolithic Terraform)
 - [ ] Configure `providers.tf` with the standard AWS provider and an S3 remote backend block.
 - [ ] Provision the VPC topology in `vpc.tf` (2 Public Subnets, 2 Private Subnets, 1 IGW, 1 NAT Gateway).

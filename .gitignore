@@ -10,9 +10,10 @@
 # Terraform lock file — committed, do not ignore
 !.terraform.lock.hcl
 
-# Node
+# Node / React Router
 frontend/node_modules/
-frontend/dist/
+frontend/build/
+frontend/.react-router/
 
 # Go
 backend/server

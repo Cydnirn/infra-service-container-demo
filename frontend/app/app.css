@@ -1,4 +1,6 @@
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -38,16 +40,34 @@ body {
   padding: 0 1rem;
 }
 
+.app-footer {
+  text-align: center;
+  padding: 1rem;
+  color: #888;
+  font-size: 0.85rem;
+  border-top: 1px solid #e0e0e0;
+}
+
 .loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
   height: 3px;
   background: linear-gradient(90deg, #3498db, #2ecc71);
   animation: loading 1.5s ease-in-out infinite;
+  z-index: 1000;
 }
 
 @keyframes loading {
-  0% { width: 0; }
-  50% { width: 70%; }
-  100% { width: 100%; }
+  0% {
+    width: 0;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 100%;
+  }
 }
 
 .student-list-container {

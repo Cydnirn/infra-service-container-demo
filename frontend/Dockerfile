@@ -1,4 +1,4 @@
-# Stage 1: Build the React application
+# Stage 1: Build the React Router Framework Mode application
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -6,17 +6,20 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 
-COPY vite.config.js ./
-COPY index.html ./
-COPY src/ ./src/
+COPY react-router.config.ts ./
+COPY app/ ./app/
 
 RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/build/client /usr/share/nginx/html
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

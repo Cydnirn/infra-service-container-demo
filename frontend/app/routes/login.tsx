@@ -1,16 +1,16 @@
 import { Form, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/login";
-import { login, isAuthenticated } from "../api";
-import { useState } from "react";
+import { login } from "../api";
 
-export async function clientLoader() {
-  if (isAuthenticated()) {
-    return redirect("/dashboard");
-  }
+export async function loader() {
+  // Auth check is implicit — if user has a valid cookie,
+  // redirect to dashboard. Otherwise show login.
+  // (Cookie-based auth means we can't check here without the request,
+  //  so we let the dashboard loader handle the redirect if unauthed.)
   return null;
 }
 
-export async function clientAction({ request }: Route.ClientActionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const username = formData.get("username") as string;
   const password = formData.get("password") as string;
@@ -20,8 +20,12 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
   }
 
   try {
-    await login(username, password);
-    return redirect("/dashboard");
+    const data = await login(username, password);
+    return redirect("/dashboard", {
+      headers: {
+        "Set-Cookie": `auth_token=${data.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
+      },
+    });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Login failed" };
   }
@@ -30,7 +34,6 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
 export default function Login({ actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-  const [error, setError] = useState(actionData?.error || "");
 
   return (
     <div className="login-container">
@@ -40,7 +43,9 @@ export default function Login({ actionData }: Route.ComponentProps) {
           Enter your credentials to access the Student Management System.
         </p>
 
-        {error && <div className="login-error">{error}</div>}
+        {actionData?.error && (
+          <div className="login-error">{actionData.error}</div>
+        )}
 
         <Form method="post" className="login-form">
           <div className="form-group">

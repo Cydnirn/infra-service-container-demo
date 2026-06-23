@@ -1,27 +1,33 @@
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/index";
-import { fetchStudents, isAuthenticated, logout } from "../api";
+import { fetchStudents } from "../api";
 
-export async function clientLoader() {
-  if (!isAuthenticated()) {
-    return redirect("/login");
+export async function loader({ request }: Route.LoaderArgs) {
+  try {
+    const students = await fetchStudents(request);
+    return { students };
+  } catch {
+    // Auth failed — redirect to login
+    return redirect("/");
   }
-  const students = await fetchStudents();
-  return { students };
 }
 
-export async function clientAction({ request }: Route.ClientActionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
   if (intent === "logout") {
-    await logout();
-    return redirect("/login");
+    return redirect("/", {
+      headers: {
+        "Set-Cookie": "auth_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      },
+    });
   }
   return null;
 }
 
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
-  const { students } = loaderData;
+  const students = loaderData?.students ?? [];
+  console.log(students);
   const deleteFetcher = useFetcher();
 
   return (
@@ -41,7 +47,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         </div>
       </div>
 
-      {students.length === 0 ? (
+      {students && students?.length === 0 ? (
         <div className="empty-state">
           <p>
             No students registered yet. Click &ldquo;Add Student&rdquo; to get

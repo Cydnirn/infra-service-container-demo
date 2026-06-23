@@ -2,27 +2,33 @@ import { Form, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/students.$id.edit";
 import { fetchStudent, updateStudent } from "../api";
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const student = await fetchStudent(params.id);
-  return { student };
+export async function loader({ params, request }: Route.LoaderArgs) {
+  try {
+    const student = await fetchStudent(params.id, request);
+    return { student };
+  } catch {
+    return redirect("/");
+  }
 }
 
-export async function clientAction({
-  request,
-  params,
-}: Route.ClientActionArgs) {
+export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const student = {
     name: formData.get("name") as string,
     age: parseInt(formData.get("age") as string, 10),
     major: formData.get("major") as string,
   };
-  await updateStudent(params.id, student);
-  return redirect("/");
+  await updateStudent(params.id, student, request);
+  return redirect("/dashboard");
 }
 
 export default function EditStudent({ loaderData }: Route.ComponentProps) {
-  const { student } = loaderData;
+  const student = loaderData?.student ?? {
+    id: "",
+    name: "",
+    age: 0,
+    major: "",
+  };
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
@@ -77,7 +83,7 @@ export default function EditStudent({ loaderData }: Route.ComponentProps) {
           >
             {isSubmitting ? "Saving..." : "Update Student"}
           </button>
-          <a href="/" className="btn btn-secondary">
+          <a href="/dashboard" className="btn btn-secondary">
             Cancel
           </a>
         </div>

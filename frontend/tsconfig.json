@@ -1,9 +1,5 @@
 {
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/.react-router/types/**/*"
-  ],
+  "include": ["**/*.ts", "**/*.tsx", "**/.react-router/types/**/*"],
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
@@ -13,7 +9,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["@react-router/node"],
-    "rootDirs": [".", "./.react-router/types"]
-  }
+    "types": ["@react-router/node", "node"],
+    "rootDirs": [".", "./.react-router/types"],
+  },
 }

@@ -2,15 +2,15 @@ import { Form, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/students.new";
 import { createStudent } from "../api";
 
-export async function clientAction({ request }: Route.ClientActionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const student = {
     name: formData.get("name") as string,
     age: parseInt(formData.get("age") as string, 10),
     major: formData.get("major") as string,
   };
-  await createStudent(student);
-  return redirect("/");
+  await createStudent(student, request);
+  return redirect("/dashboard");
 }
 
 export default function NewStudent() {
@@ -65,7 +65,7 @@ export default function NewStudent() {
           >
             {isSubmitting ? "Creating..." : "Create Student"}
           </button>
-          <a href="/" className="btn btn-secondary">
+          <a href="/dashboard" className="btn btn-secondary">
             Cancel
           </a>
         </div>

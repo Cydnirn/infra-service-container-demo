@@ -1,43 +1,67 @@
-import { Form, redirect, useFetcher, useLoaderData, useNavigation } from "react-router";
+import {
+  redirect,
+  useFetcher,
+  useLoaderData,
+  useRevalidator,
+} from "react-router";
+import { useEffect, useRef } from "react";
 import type { Route } from "./+types/students.$id";
-import { fetchStudent, fetchNotes, createNote, deleteStudent, isAuthenticated } from "../api";
-import { useEffect, useState } from "react";
+import { fetchStudent, fetchNotes, createNote, deleteStudent } from "../api";
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  if (!isAuthenticated()) {
-    return redirect("/login");
+export async function loader({ params, request }: Route.LoaderArgs) {
+  try {
+    const [student, notes] = await Promise.all([
+      fetchStudent(params.id, request),
+      fetchNotes(params.id, request),
+    ]);
+    return { student, notes };
+  } catch {
+    return redirect("/");
   }
-  const student = await fetchStudent(params.id);
-  const notes = await fetchNotes(params.id);
-  return { student, notes };
 }
 
-export async function clientAction({ request, params }: Route.ClientActionArgs) {
+export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "delete") {
-    await deleteStudent(params.id);
+    await deleteStudent(params.id, request);
     return redirect("/dashboard");
   }
 
   if (intent === "add-note") {
     const content = formData.get("content") as string;
     if (content && content.trim()) {
-      await createNote(params.id, content.trim());
+      await createNote(params.id, content.trim(), request);
     }
-    return null;
+    return { ok: true };
   }
 
   return null;
 }
 
 export default function StudentDetail({ loaderData }: Route.ComponentProps) {
-  const { student, notes } = loaderData;
-  const navigation = useNavigation();
+  const student = loaderData?.student ?? {
+    id: "",
+    name: "",
+    age: 0,
+    major: "",
+  };
+  const notes = loaderData?.notes ?? [];
   const noteFetcher = useFetcher();
   const deleteFetcher = useFetcher();
-  const isSubmitting = navigation.state === "submitting";
+  const revalidator = useRevalidator();
+  console.log(notes);
+
+  // When the note fetcher completes, re-run the loader to
+  // fetch the updated notes from DocumentDB.
+  const prevState = useRef(noteFetcher.state);
+  useEffect(() => {
+    if (prevState.current === "submitting" && noteFetcher.state === "idle") {
+      revalidator.revalidate();
+    }
+    prevState.current = noteFetcher.state;
+  }, [noteFetcher.state, revalidator]);
 
   return (
     <div className="student-detail-container">
@@ -129,16 +153,14 @@ export default function StudentDetail({ loaderData }: Route.ComponentProps) {
             onClick={(e) => {
               if (
                 !confirm(
-                  "Are you sure you want to delete this student and all associated notes?"
+                  "Are you sure you want to delete this student and all associated notes?",
                 )
               ) {
                 e.preventDefault();
               }
             }}
           >
-            {deleteFetcher.state !== "idle"
-              ? "Deleting..."
-              : "Delete Student"}
+            {deleteFetcher.state !== "idle" ? "Deleting..." : "Delete Student"}
           </button>
         </deleteFetcher.Form>
       </div>

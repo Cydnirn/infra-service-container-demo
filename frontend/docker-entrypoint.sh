@@ -1,14 +1,15 @@
 #!/bin/sh
 set -e
 
-# Inject REACT_APP_API_URL into a runtime config script.
-# The app reads window.__REACT_APP_API_URL__ at startup.
-API_URL="${REACT_APP_API_URL:-http://localhost:8080}"
+# In SSR mode the React Router server reads API_URL from the
+# environment. This script allows overriding it at container start
+# via REACT_APP_API_URL (legacy) or API_URL directly.
+: "${API_URL:=${REACT_APP_API_URL:-http://student-backend:8080}}"
+: "${PORT:=80}"
 
-cat > /usr/share/nginx/html/env-config.js << EOF
-window.__REACT_APP_API_URL__ = "${API_URL}";
-EOF
+export API_URL
+export PORT
 
-echo "env-config.js written with API_URL=${API_URL}"
+echo "Starting frontend server (API_URL=${API_URL}, PORT=${PORT})"
 
-exec "$@"
+exec npx react-router-serve ./build/server/index.js

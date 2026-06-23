@@ -1,4 +1,4 @@
-# Stage 1: Build the React Router Framework Mode application
+# Stage 1: Build the React Router application (SSR mode)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -11,15 +11,21 @@ COPY app/ ./app/
 
 RUN npm run build
 
-# Stage 2: Serve with nginx
-FROM nginx:alpine
+# Stage 2: Minimal Node.js runtime
+FROM node:20-alpine
 
-COPY --from=builder /app/build/client /usr/share/nginx/html
+WORKDIR /app
 
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Copy the full build output (server + client bundles)
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+# API_URL tells the server where the backend is (K8s internal DNS)
+ENV API_URL=http://student-backend:8080
+ENV PORT=80
+ENV NODE_ENV=production
 
 EXPOSE 80
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npx", "react-router-serve", "./build/server/index.js"]

@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,13 +22,24 @@ type Store struct {
 	db *sql.DB
 }
 
-// New creates a new Store, connects to PostgreSQL, and runs migrations.
+// New creates a new Store, connects to PostgreSQL via the RDS Proxy,
+// and runs migrations. Retries for up to 2 minutes to allow the proxy
+// to finish initializing and DNS records to propagate.
 func New() (*Store, error) {
 	host := httputil.EnvOrDefault("DB_HOST", "localhost")
 	port := httputil.EnvOrDefault("DB_PORT", "5432")
 	user := httputil.EnvOrDefault("DB_USERNAME", "postgres")
 	password := httputil.EnvOrDefault("DB_PASSWORD", "postgres")
 	dbname := httputil.EnvOrDefault("DB_NAME", "student_management")
+
+	log.Printf("Connecting to PostgreSQL: host=%s port=%s user=%s dbname=%s",
+		host, port, user, dbname)
+
+	// Resolve DNS first with retry — RDS Proxy DNS records can take
+	// 30-60 seconds to propagate after creation or recreation.
+	if err := resolveWithRetry(host, 2*time.Minute); err != nil {
+		return nil, err
+	}
 
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
@@ -42,9 +55,7 @@ func New() (*Store, error) {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err := pingWithRetry(db, 2*time.Minute); err != nil {
 		return nil, fmt.Errorf("ping PostgreSQL: %w", err)
 	}
 
@@ -52,8 +63,80 @@ func New() (*Store, error) {
 		return nil, fmt.Errorf("migrate PostgreSQL: %w", err)
 	}
 
-	log.Println("Connected to PostgreSQL (RDS)")
+	log.Printf("Connected to PostgreSQL at %s:%s", host, port)
 	return &Store{db: db}, nil
+}
+
+// resolveWithRetry attempts DNS resolution repeatedly until success
+// or the timeout expires. RDS endpoints can take 30-60s to propagate.
+func resolveWithRetry(host string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	backoff := 1 * time.Second
+
+	for {
+		_, err := net.LookupHost(host)
+		if err == nil {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf(
+				"DNS resolution failed for %q after %v — the RDS Proxy may "+
+					"not exist or its DNS record has not propagated yet. "+
+					"Verify the hostname in kustomization.yaml and ensure "+
+					"the RDS Proxy was created with 'terraform apply'. "+
+					"(last error: %w)", host, timeout, err)
+		}
+
+		log.Printf("DNS lookup for %q failed (retrying in %v): %v", host, backoff, err)
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > 15*time.Second {
+			backoff = 15 * time.Second
+		}
+	}
+}
+
+// pingWithRetry attempts to ping the database repeatedly until success
+// or the timeout expires. Returns the last error on failure.
+func pingWithRetry(db *sql.DB, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	backoff := 1 * time.Second
+
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := db.PingContext(ctx)
+		cancel()
+
+		if err == nil {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			msg := err.Error()
+			switch {
+			case strings.Contains(msg, "no credentials for the role"):
+				return fmt.Errorf(
+					"RDS Proxy cannot authenticate — the Secrets Manager secret "+
+						"for the proxy may be missing or out of sync. "+
+						"Try: terraform apply -replace=aws_db_proxy.postgres "+
+						"or re-apply databases.tf (last error: %w)", err)
+			case strings.Contains(msg, "connection refused"):
+				return fmt.Errorf(
+					"RDS Proxy not reachable — it may still be provisioning. "+
+						"Wait 2-3 minutes and try again (last error: %w)", err)
+			default:
+				return fmt.Errorf("unable to reach database after %v: %w", timeout, err)
+			}
+		}
+
+		log.Printf("PostgreSQL ping failed (retrying in %v): %v", backoff, err)
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > 15*time.Second {
+			backoff = 15 * time.Second
+		}
+	}
 }
 
 func migrate(db *sql.DB) error {

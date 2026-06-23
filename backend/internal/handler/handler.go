@@ -5,6 +5,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -27,6 +28,13 @@ type Server struct {
 
 // RegisterRoutes attaches all API endpoints to the provided ServeMux.
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
+	// ── Health (public, no auth) ────────────────────────────
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	// ── Public ──────────────────────────────────────────────
 	mux.HandleFunc("POST /login", s.handleLogin)
 
@@ -152,6 +160,8 @@ func (s *Server) handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListNotes(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	notes, err := s.DocDB.ListNotes(r.Context(), id)
+	log.Default().Printf("list notes for student %s", id)
+	log.Default().Printf("notes: %v", notes)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError,
 			"failed to list notes: "+err.Error())
@@ -162,6 +172,8 @@ func (s *Server) handleListNotes(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 	studentID := r.PathValue("id")
+	log.Default().Printf("creating note for student %s", studentID)
+	log.Default().Printf("note content: %s", r.Body)
 	var note models.Note
 	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "invalid request body")
@@ -173,5 +185,6 @@ func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 			"failed to create note: "+err.Error())
 		return
 	}
+	log.Default().Printf("note created: %v", note)
 	httputil.WriteJSON(w, http.StatusCreated, note)
 }

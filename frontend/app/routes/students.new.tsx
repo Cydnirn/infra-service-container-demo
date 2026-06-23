@@ -5,9 +5,9 @@ import { createStudent } from "../api";
 export async function clientAction({ request }: Route.ClientActionArgs) {
   const formData = await request.formData();
   const student = {
-    name: formData.get("name"),
-    age: parseInt(formData.get("age"), 10),
-    major: formData.get("major"),
+    name: formData.get("name") as string,
+    age: parseInt(formData.get("age") as string, 10),
+    major: formData.get("major") as string,
   };
   await createStudent(student);
   return redirect("/");

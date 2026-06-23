@@ -7,12 +7,15 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   return { student };
 }
 
-export async function clientAction({ request, params }: Route.ClientActionArgs) {
+export async function clientAction({
+  request,
+  params,
+}: Route.ClientActionArgs) {
   const formData = await request.formData();
   const student = {
-    name: formData.get("name"),
-    age: parseInt(formData.get("age"), 10),
-    major: formData.get("major"),
+    name: formData.get("name") as string,
+    age: parseInt(formData.get("age") as string, 10),
+    major: formData.get("major") as string,
   };
   await updateStudent(params.id, student);
   return redirect("/");

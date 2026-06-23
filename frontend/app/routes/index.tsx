@@ -1,23 +1,44 @@
-import { useFetcher, useLoaderData } from "react-router";
+import { redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/index";
-import { fetchStudents } from "../api";
+import { fetchStudents, isAuthenticated, logout } from "../api";
 
 export async function clientLoader() {
+  if (!isAuthenticated()) {
+    return redirect("/login");
+  }
   const students = await fetchStudents();
   return { students };
 }
 
-export default function StudentList({ loaderData }: Route.ComponentProps) {
+export async function clientAction({ request }: Route.ClientActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+  if (intent === "logout") {
+    await logout();
+    return redirect("/login");
+  }
+  return null;
+}
+
+export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { students } = loaderData;
   const deleteFetcher = useFetcher();
 
   return (
     <div className="student-list-container">
       <div className="list-header">
-        <h2>Students</h2>
-        <a href="/students/new" className="btn btn-primary">
-          Add Student
-        </a>
+        <h2>Student Directory</h2>
+        <div className="list-header-actions">
+          <a href="/students/new" className="btn btn-primary">
+            Add Student
+          </a>
+          <deleteFetcher.Form method="post" style={{ display: "inline" }}>
+            <input type="hidden" name="intent" value="logout" />
+            <button type="submit" className="btn btn-secondary">
+              Logout
+            </button>
+          </deleteFetcher.Form>
+        </div>
       </div>
 
       {students.length === 0 ? (
@@ -40,7 +61,11 @@ export default function StudentList({ loaderData }: Route.ComponentProps) {
           <tbody>
             {students.map((student) => (
               <tr key={student.id}>
-                <td>{student.name}</td>
+                <td>
+                  <a href={`/students/${student.id}`} className="student-link">
+                    {student.name}
+                  </a>
+                </td>
                 <td>{student.age}</td>
                 <td>{student.major}</td>
                 <td className="actions-cell">
@@ -60,7 +85,9 @@ export default function StudentList({ loaderData }: Route.ComponentProps) {
                       className="btn btn-small btn-danger"
                       disabled={deleteFetcher.state !== "idle"}
                     >
-                      {deleteFetcher.state !== "idle" ? "Deleting..." : "Delete"}
+                      {deleteFetcher.state !== "idle"
+                        ? "Deleting..."
+                        : "Delete"}
                     </button>
                   </deleteFetcher.Form>
                 </td>

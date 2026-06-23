@@ -1,1 +1,3 @@
-lab_role_arn = "value"
+lab_role_arn      = "arn:aws:iam::123456789012:role/LabRole"
+db_master_username = "dbadmin"
+db_master_password = "CHANGE_ME_TO_A_SECURE_PASSWORD"

@@ -46,6 +46,23 @@ resource "aws_security_group" "eks_cluster" {
   description = "Security group for the EKS cluster"
   vpc_id      = aws_vpc.main.id
 
+  # Allow the cluster to communicate with the database layer
+  egress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [for i in range(2) : "10.0.${i + 20}.0/24"]
+    description = "PostgreSQL to database subnets"
+  }
+
+  egress {
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = [for i in range(2) : "10.0.${i + 20}.0/24"]
+    description = "DocumentDB to database subnets"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

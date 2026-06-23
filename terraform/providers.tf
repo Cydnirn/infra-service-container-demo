@@ -6,28 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-  }
-
-  # ─────────────────────────────────────────────────────────
-  # S3 Remote Backend (template — configure before use)
-  #
-  # Option A: Edit the placeholder values below directly.
-  # Option B: Leave blank and pass via CLI:
-  #   terraform init \
-  #     -backend-config="bucket=YOUR_BUCKET" \
-  #     -backend-config="key=student-management/terraform.tfstate" \
-  #     -backend-config="region=us-east-1" \
-  #     -backend-config="dynamodb_table=YOUR_LOCK_TABLE"
-  #
-  # The LabRole must have s3:GetObject, s3:PutObject on the bucket
-  # and dynamodb:GetItem, dynamodb:PutItem on the lock table.
-  # ─────────────────────────────────────────────────────────
-  backend "s3" {
-    bucket         = "REPLACE_WITH_YOUR_BUCKET_NAME"
-    key            = "student-management/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "REPLACE_WITH_YOUR_DYNAMODB_LOCK_TABLE" // Optional
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -54,6 +36,19 @@ variable "environment" {
 variable "lab_role_arn" {
   description = "ARN of the pre-existing LabRole for IAM permissions (ECS execution/task, EKS cluster/node, VPC flow logs)"
   type        = string
+}
+
+variable "db_master_username" {
+  description = "Master username for RDS and DocumentDB"
+  type        = string
+  default     = "dbadmin"
+  sensitive   = true
+}
+
+variable "db_master_password" {
+  description = "Master password for RDS and DocumentDB"
+  type        = string
+  sensitive   = true
 }
 
 # Backend configuration variables — documented for reference.

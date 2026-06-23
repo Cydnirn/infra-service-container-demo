@@ -34,6 +34,28 @@ resource "aws_ecs_task_definition" "backend" {
           protocol      = "tcp"
         }
       ]
+      environment = [
+        # PostgreSQL (RDS via Proxy)
+        { name = "DB_HOST", value = aws_db_proxy.postgres.endpoint },
+        { name = "DB_PORT", value = "5432" },
+        { name = "DB_NAME", value = aws_db_instance.postgres.db_name },
+        # DocumentDB
+        { name = "DOCDB_CONNECTION_STRING", value = "mongodb://${aws_docdb_cluster.main.endpoint}:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false" },
+        { name = "DOCDB_DB_NAME", value = "student_management" },
+        { name = "DOCDB_COLLECTION", value = "notes" },
+        # DynamoDB
+        { name = "DYNAMODB_TABLE_NAME", value = aws_dynamodb_table.users.name },
+        # CORS
+        { name = "CORS_ALLOWED_ORIGIN", value = "*" },
+        # Port
+        { name = "PORT", value = "8080" },
+      ]
+      secrets = [
+        { name = "DB_USERNAME", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:username::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:password::" },
+        { name = "DOCDB_USERNAME", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:username::" },
+        { name = "DOCDB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:password::" },
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -104,7 +126,7 @@ resource "aws_lb_target_group" "backend" {
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 5
-    matcher             = "200"
+    matcher             = "200,401"
   }
 
   tags = {
@@ -193,6 +215,19 @@ resource "aws_ecr_repository" "backend" {
 
   tags = {
     Name        = "student-backend-ecr"
+    Environment = var.environment
+  }
+}
+
+resource "aws_ecr_repository" "frontend" {
+  name = "student-frontend"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "student-frontend-ecr"
     Environment = var.environment
   }
 }

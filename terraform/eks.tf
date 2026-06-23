@@ -3,7 +3,7 @@
 resource "aws_eks_cluster" "main" {
   name     = "student-management-eks"
   role_arn = var.lab_role_arn
-  version  = "1.31"
+  version  = "1.36"
 
   vpc_config {
     subnet_ids              = concat(aws_subnet.public[*].id, aws_subnet.private[*].id)

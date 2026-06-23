@@ -66,7 +66,12 @@ resource "aws_db_proxy" "postgres" {
     Environment = var.environment
   }
 
-  depends_on = [aws_db_instance.postgres]
+  # Must wait for the DB instance AND the secret version to be ready.
+  # Without the secret version the Proxy starts with no credentials.
+  depends_on = [
+    aws_db_instance.postgres,
+    aws_secretsmanager_secret_version.rds_credentials,
+  ]
 }
 
 resource "aws_db_proxy_default_target_group" "postgres" {
@@ -87,7 +92,7 @@ resource "aws_db_proxy_target" "postgres" {
 
 # Secrets Manager for RDS credentials (used by RDS Proxy)
 resource "aws_secretsmanager_secret" "rds_credentials" {
-  name = "student-management/rds-credentials"
+  name_prefix = "student-management/rds-credentials"
 
   tags = {
     Name        = "student-management-rds-credentials"
@@ -98,12 +103,13 @@ resource "aws_secretsmanager_secret" "rds_credentials" {
 resource "aws_secretsmanager_secret_version" "rds_credentials" {
   secret_id = aws_secretsmanager_secret.rds_credentials.id
   secret_string = jsonencode({
-    username = var.db_master_username
-    password = var.db_master_password
-    engine   = "postgres"
-    host     = aws_db_instance.postgres.address
-    port     = 5432
-    dbname   = aws_db_instance.postgres.db_name
+    username             = var.db_master_username
+    password             = var.db_master_password
+    engine               = "postgres"
+    host                 = aws_db_instance.postgres.address
+    port                 = 5432
+    dbname               = aws_db_instance.postgres.db_name
+    dbInstanceIdentifier = aws_db_instance.postgres.identifier
   })
 }
 

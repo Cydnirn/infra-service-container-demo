@@ -1,0 +1,8 @@
+# Shared namespace for all Student Management resources.
+# Apply this first:  kubectl apply -f namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: student-management
+  labels:
+    app: student-management

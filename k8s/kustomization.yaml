@@ -1,0 +1,70 @@
+# ───────────────────────────────────────────────────────────
+#  Kustomize — Student Management Application
+# ───────────────────────────────────────────────────────────
+#
+#  Edit values in THIS FILE ONLY, then deploy with:
+#
+#    kubectl apply -k .
+#
+#  Preview the generated manifests without applying:
+#
+#    kubectl kustomize .
+#
+# ───────────────────────────────────────────────────────────
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All resources are deployed into this namespace.
+# The namespace.yaml is still included for environments
+# where the namespace does not already exist.
+namespace: student-management
+
+# ─────────────────────────────────────────────────────────
+#  DATABASE CREDENTIALS  (→ generated as a Secret)
+#  ⚠️  Change these before deploying to production.
+# ─────────────────────────────────────────────────────────
+secretGenerator:
+  - name: student-backend-secret
+    literals:
+      - DB_USERNAME=dbadmin
+      - DB_PASSWORD=CHANGE_ME
+      - DOCDB_USERNAME=dbadmin
+      - DOCDB_PASSWORD=CHANGE_ME
+
+# ─────────────────────────────────────────────────────────
+#  DATABASE CONFIGURATION  (→ generated as a ConfigMap)
+#  Replace the placeholder endpoints with your actual
+#  RDS Proxy and DocumentDB endpoint addresses.
+# ─────────────────────────────────────────────────────────
+configMapGenerator:
+  - name: student-backend-config
+    literals:
+      - DB_HOST=REPLACE_WITH_RDS_PROXY_ENDPOINT
+      - DB_PORT=5432
+      - DB_NAME=student_management
+      - DOCDB_DB_NAME=student_management
+      - DOCDB_COLLECTION=notes
+      - DOCDB_CONNECTION_STRING=mongodb://REPLACE_WITH_DOCDB_ENDPOINT:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
+      - DYNAMODB_TABLE_NAME=users
+      - CORS_ALLOWED_ORIGIN=*
+
+# ─────────────────────────────────────────────────────────
+#  IMAGE OVERRIDES
+#  newName  → full ECR / registry path
+#  newTag   → version tag (change to deploy a new version)
+# ─────────────────────────────────────────────────────────
+images:
+  - name: student-backend
+    newName: 284845684968.dkr.ecr.us-east-1.amazonaws.com/student-backend
+    newTag: latest
+  - name: student-frontend
+    newName: 284845684968.dkr.ecr.us-east-1.amazonaws.com/student-frontend
+    newTag: latest
+
+# ─────────────────────────────────────────────────────────
+#  RESOURCES  (processed in order)
+# ─────────────────────────────────────────────────────────
+resources:
+  - namespace.yaml
+  - backend/
+  - frontend/

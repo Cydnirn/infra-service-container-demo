@@ -1,0 +1,53 @@
+# Frontend Deployment — React SPA served by nginx on port 80.
+# REACT_APP_API_URL uses Kubernetes DNS service discovery:
+#   student-backend  →  resolves to the backend Service ClusterIP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: student-frontend
+  template:
+    metadata:
+      labels:
+        app: student-frontend
+    spec:
+      containers:
+        - name: frontend
+          # Image tag is overridden by Kustomize "images:" in root kustomization.yaml
+          image: student-frontend:placeholder
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          env:
+            # Kubernetes DNS resolves "student-backend" to the backend Service
+            - name: API_URL
+              value: "http://student-backend:8080"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "256m"
+              memory: "128Mi"
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5

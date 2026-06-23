@@ -1,0 +1,16 @@
+# Backend Service — ClusterIP (internal only).
+# Frontend reaches the API via Kubernetes DNS at:
+#   http://student-backend:8080
+apiVersion: v1
+kind: Service
+metadata:
+  name: student-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: student-backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

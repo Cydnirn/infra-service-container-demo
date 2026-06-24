@@ -1,47 +1,43 @@
 import { Form, redirect, useNavigation } from "react-router";
-import type { Route } from "./+types/login";
-import { cognitoLogin } from "../api";
-
-export async function loader() {
-  return null;
-}
+import type { Route } from "./+types/register";
+import { cognitoRegister } from "../api";
 
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
-  const username = formData.get("username") as string;
+  const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const name = formData.get("name") as string;
 
-  if (!username || !password) {
-    return { error: "Username and password are required" };
+  if (!email || !password) {
+    return { error: "Email and password are required" };
   }
 
   try {
-    const data = await cognitoLogin(username, password);
-    // Store the Cognito Access Token in an HttpOnly cookie.
-    // The token is validated by the backend's Cognito JWT middleware.
-    return redirect("/dashboard", {
+    await cognitoRegister(email, password, name || undefined);
+    // After successful registration, redirect to login with a success message.
+    return redirect("/", {
       headers: {
-        "Set-Cookie": `auth_token=${data.accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`,
+        // We can't easily pass flash messages in SSR, so we redirect
+        // and the user signs in.
       },
     });
   } catch (err) {
     return {
-      error: err instanceof Error ? err.message : "Authentication failed",
+      error: err instanceof Error ? err.message : "Registration failed",
     };
   }
 }
 
-export default function Login({ actionData }: Route.ComponentProps) {
+export default function Register({ actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
   return (
     <div className="login-container">
       <div className="login-card">
-        <h2>Sign In</h2>
+        <h2>Create Account</h2>
         <p className="login-description">
-          Sign in with your Cognito credentials to access the Student Management
-          System.
+          Sign up for a new account to access the Student Management System.
         </p>
 
         {actionData?.error && (
@@ -50,11 +46,22 @@ export default function Login({ actionData }: Route.ComponentProps) {
 
         <Form method="post" className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Email</label>
+            <label htmlFor="name">Full Name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              disabled={isSubmitting}
+              placeholder="John Doe"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
             <input
               type="email"
-              id="username"
-              name="username"
+              id="email"
+              name="email"
               required
               autoFocus
               disabled={isSubmitting}
@@ -69,7 +76,9 @@ export default function Login({ actionData }: Route.ComponentProps) {
               id="password"
               name="password"
               required
+              minLength={8}
               disabled={isSubmitting}
+              placeholder="Min. 8 characters"
             />
           </div>
 
@@ -78,14 +87,14 @@ export default function Login({ actionData }: Route.ComponentProps) {
             className="btn btn-primary login-btn"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Signing in..." : "Sign In"}
+            {isSubmitting ? "Creating Account..." : "Sign Up"}
           </button>
         </Form>
 
         <p className="login-footer">
-          Don't have an account?{" "}
-          <a href="/register" className="login-link">
-            Create one
+          Already have an account?{" "}
+          <a href="/" className="login-link">
+            Sign in
           </a>
         </p>
       </div>

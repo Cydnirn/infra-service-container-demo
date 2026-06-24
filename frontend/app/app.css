@@ -122,6 +122,22 @@ body {
   font-size: 1rem;
 }
 
+.login-footer {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.login-link {
+  color: #3498db;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
 /* ── Student List (Dashboard) ───────────────────────────── */
 
 .student-list-container {

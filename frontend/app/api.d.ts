@@ -1,9 +1,15 @@
 // Type declarations for api.js (SSR mode — all calls are server-side)
 
-export function login(
+export function cognitoLogin(
   username: string,
   password: string,
-): Promise<{ token: string; message: string }>;
+): Promise<{ accessToken: string; idToken: string; refreshToken: string }>;
+
+export function cognitoRegister(
+  email: string,
+  password: string,
+  name?: string,
+): Promise<{ userSub: string; userConfirmed: boolean }>;
 
 export function fetchStudents(
   request: Request,

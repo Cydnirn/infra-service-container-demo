@@ -2,7 +2,8 @@
 // The React Router server runs inside the EKS cluster and can reach
 // the backend Service via Kubernetes DNS at http://student-backend:8080.
 //
-// Auth token is passed via cookies (HttpOnly) — never reaches the browser.
+// Auth token (Cognito Access Token) is passed via cookies (HttpOnly)
+// — never reaches the browser as JavaScript-accessible data.
 
 const API_URL = (() => {
   if (typeof process !== "undefined" && process.env.API_URL) {
@@ -25,19 +26,91 @@ function getAuthHeaders(request) {
   return { Authorization: `Bearer ${token}` };
 }
 
-// ── Auth ────────────────────────────────────────────────────
+// ── Cognito Auth ───────────────────────────────────────────
 
-export async function login(username, password) {
-  const res = await fetch(`${API_URL}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+/**
+ * Authenticate with Amazon Cognito User Pool.
+ * Returns the Cognito authentication result containing accessToken, idToken,
+ * and refreshToken.
+ */
+export async function cognitoLogin(username, password) {
+  const { CognitoUserPool, CognitoUser, AuthenticationDetails } =
+    await import("amazon-cognito-identity-js");
+
+  const poolData = {
+    UserPoolId: getCognitoConfig().userPoolId,
+    ClientId: getCognitoConfig().clientId,
+  };
+
+  const userPool = new CognitoUserPool(poolData);
+
+  const authenticationDetails = new AuthenticationDetails({
+    Username: username,
+    Password: password,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Login failed");
+
+  const cognitoUser = new CognitoUser({
+    Username: username,
+    Pool: userPool,
+  });
+
+  return new Promise((resolve, reject) => {
+    cognitoUser.authenticateUser(authenticationDetails, {
+      onSuccess: (result) => {
+        resolve({
+          accessToken: result.getAccessToken().getJwtToken(),
+          idToken: result.getIdToken().getJwtToken(),
+          refreshToken: result.getRefreshToken().getToken(),
+        });
+      },
+      onFailure: (err) => {
+        reject(new Error(err.message || "Cognito authentication failed"));
+      },
+    });
+  });
+}
+
+/**
+ * Register a new user in the Cognito User Pool.
+ */
+export async function cognitoRegister(email, password, name) {
+  const { CognitoUserPool, CognitoUserAttribute } =
+    await import("amazon-cognito-identity-js");
+
+  const poolData = {
+    UserPoolId: getCognitoConfig().userPoolId,
+    ClientId: getCognitoConfig().clientId,
+  };
+
+  const userPool = new CognitoUserPool(poolData);
+
+  const attributeList = [
+    new CognitoUserAttribute({ Name: "email", Value: email }),
+  ];
+  if (name) {
+    attributeList.push(new CognitoUserAttribute({ Name: "name", Value: name }));
   }
-  return res.json(); // { token, message }
+
+  return new Promise((resolve, reject) => {
+    userPool.signUp(email, password, attributeList, [], (err, result) => {
+      if (err) {
+        reject(new Error(err.message || "Cognito registration failed"));
+        return;
+      }
+      resolve({
+        userSub: result?.userSub,
+        userConfirmed: result?.userConfirmed ?? false,
+      });
+    });
+  });
+}
+
+function getCognitoConfig() {
+  return {
+    userPoolId:
+      process.env.COGNITO_USER_POOL_ID || "REPLACE_WITH_COGNITO_USER_POOL_ID",
+    clientId: process.env.COGNITO_CLIENT_ID || "REPLACE_WITH_COGNITO_CLIENT_ID",
+  };
 }
 
 // ── Students (RDS) ──────────────────────────────────────────
@@ -86,7 +159,7 @@ export async function deleteStudent(id, request) {
   if (!res.ok) throw new Error("Failed to delete student");
 }
 
-// ── Notes (DocumentDB) ──────────────────────────────────────
+// ── Notes (DocumentDB + KMS encrypted) ──────────────────────
 
 export async function fetchNotes(studentId, request) {
   const res = await fetch(`${API_URL}/students/${studentId}/notes`, {

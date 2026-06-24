@@ -23,4 +23,5 @@ backend/server
 .vscode/
 *.swp
 *.swo
+Changes.md
 Task.md

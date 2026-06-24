@@ -1,20 +1,11 @@
-# Frontend Service — LoadBalancer (external browser access).
-# After deploying, find the external URL with:
-#   kubectl get svc student-frontend -n student-management
+# Frontend Service — ClusterIP (internal only).
+# All external traffic goes through the Ingress (ALB).
 apiVersion: v1
 kind: Service
 metadata:
   name: student-frontend
-  # Comment this out to use the default service type (Classic LoadBalancer)
-  annotations:
-    # Instructs controller to use AWS Load Balancer Controller
-    service.beta.kubernetes.io/aws-load-balancer-type: external
-    # Specifies Network Load Balancer
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-    # Makes the NLB publicly accessible
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: student-frontend
   ports:

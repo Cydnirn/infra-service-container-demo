@@ -1,6 +1,5 @@
-# Frontend Deployment — React SPA served by nginx on port 80.
-# REACT_APP_API_URL uses Kubernetes DNS service discovery:
-#   student-backend  →  resolves to the backend Service ClusterIP
+# Frontend Deployment — React application served on port 80.
+# Ingress routes traffic to this service.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

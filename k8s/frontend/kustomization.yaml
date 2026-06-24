@@ -1,5 +1,5 @@
-# Frontend sub-kustomization — Deployment + Service.
-# Image and REACT_APP_API_URL are configured in the root kustomization.yaml.
+# Frontend sub-kustomization — Deployment + Service (ClusterIP).
+# Image and API_URL are configured in the root kustomization.yaml.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 

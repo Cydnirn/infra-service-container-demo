@@ -20,32 +20,32 @@ kind: Kustomization
 namespace: student-management
 
 # ─────────────────────────────────────────────────────────
-#  DATABASE CREDENTIALS  (→ generated as a Secret)
-#  ⚠️  Change these before deploying to production.
-# ─────────────────────────────────────────────────────────
-secretGenerator:
-  - name: student-backend-secret
-    literals:
-      - DB_USERNAME=dbadmin
-      - DB_PASSWORD=CHANGE_ME
-      - DOCDB_USERNAME=dbadmin
-      - DOCDB_PASSWORD=CHANGE_ME
-
-# ─────────────────────────────────────────────────────────
-#  DATABASE CONFIGURATION  (→ generated as a ConfigMap)
+#  CONFIGURATION  (→ generated as a ConfigMap)
 #  Replace the placeholder endpoints with your actual
 #  RDS Proxy and DocumentDB endpoint addresses.
 # ─────────────────────────────────────────────────────────
 configMapGenerator:
   - name: student-backend-config
     literals:
+      # RDS (PostgreSQL via RDS Proxy)
       - DB_HOST=REPLACE_WITH_RDS_PROXY_ENDPOINT
       - DB_PORT=5432
       - DB_NAME=student_management
+      # DocumentDB
       - DOCDB_DB_NAME=student_management
       - DOCDB_COLLECTION=notes
       - DOCDB_CONNECTION_STRING=mongodb://REPLACE_WITH_DOCDB_ENDPOINT:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
-      - DYNAMODB_TABLE_NAME=users
+      # Cognito
+      - COGNITO_USER_POOL_ID=REPLACE_WITH_COGNITO_USER_POOL_ID
+      - COGNITO_CLIENT_ID=REPLACE_WITH_COGNITO_CLIENT_ID
+      - COGNITO_REGION=us-east-1
+      # KMS
+      - KMS_KEY_ID=REPLACE_WITH_KMS_KEY_ARN
+      # AWS Region
+      - AWS_REGION=us-east-1
+      # DB Secret ARN (for Secrets Manager)
+      - DB_SECRET_ARN=REPLACE_WITH_DB_SECRET_ARN
+      # CORS
       - CORS_ALLOWED_ORIGIN=*
 
 # ─────────────────────────────────────────────────────────
@@ -66,5 +66,7 @@ images:
 # ─────────────────────────────────────────────────────────
 resources:
   - namespace.yaml
+  - serviceaccount.yaml
   - backend/
   - frontend/
+  - ingress.yaml

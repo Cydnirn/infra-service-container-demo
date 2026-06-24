@@ -1,0 +1,56 @@
+# Ingress — AWS Load Balancer Controller
+# Provisions an external internet-facing ALB with HTTPS.
+# Requires the AWS Load Balancer Controller to be installed in the cluster:
+#   helm repo add eks https://aws.github.io/eks-charts
+#   helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+#     --set clusterName=student-management-eks \
+#     --set serviceAccount.create=true \
+#     --set region=us-east-1
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: student-management-ingress
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Replace with your actual ACM Certificate ARN from terraform output
+    alb.ingress.kubernetes.io/certificate-arn: REPLACE_WITH_ACM_CERTIFICATE_ARN
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+
+    # Backend routing
+    alb.ingress.kubernetes.io/actions.backend-routing: >
+      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"student-backend","servicePort":"8080"}]}}
+
+spec:
+  rules:
+    - http:
+        paths:
+          # Backend API
+          - path: /students
+            pathType: Prefix
+            backend:
+              service:
+                name: student-backend
+                port:
+                  number: 8080
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: student-backend
+                port:
+                  number: 8080
+          # Frontend (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: student-frontend
+                port:
+                  number: 80

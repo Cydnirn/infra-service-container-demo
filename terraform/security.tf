@@ -90,37 +90,35 @@ resource "aws_cognito_user_pool_client" "main" {
   name         = "student-management-client"
   user_pool_id = aws_cognito_user_pool.main.id
 
-  # SPA — no client secret
+  # SSR application — the React Router server calls Cognito's InitiateAuth
+  # API server-side via amazon-cognito-identity-js. Tokens are stored in
+  # HttpOnly cookies and never reach the browser as JavaScript-accessible data.
+  # No client secret needed — the library uses SRP (Secure Remote Password)
+  # which does not require SECRET_HASH computation.
   generate_secret = false
 
-  # OAuth flows for SPAs
+  # Explicit auth flows used by amazon-cognito-identity-js:
+  # - USER_SRP_AUTH: preferred, password never sent in plaintext
+  # - USER_PASSWORD_AUTH: fallback for legacy clients
+  # - REFRESH_TOKEN_AUTH: silent token renewal
   explicit_auth_flows = [
-    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
+    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
   ]
 
-  # Token configuration
-  access_token_validity  = 60 # minutes
-  id_token_validity      = 60 # minutes
-  refresh_token_validity = 30 # days
+  # Token lifetimes
+  access_token_validity  = 60
+  id_token_validity      = 60
+  refresh_token_validity = 30
 
-  # Prevent CSRF issues
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+
   enable_token_revocation = true
-
-  # OAuth callback URLs
-  callback_urls = var.cognito_callback_urls
-  logout_urls   = var.cognito_logout_urls
-
-  allowed_oauth_flows = ["code"]
-
-  allowed_oauth_scopes = [
-    "email",
-    "openid",
-    "profile",
-  ]
-
-  supported_identity_providers = ["COGNITO"]
 }
 
 # ───────────────────────────────────────────────────────────

@@ -83,20 +83,6 @@ data "aws_iam_policy_document" "irsa_permissions" {
   }
 }
 
-resource "aws_iam_role" "irsa" {
-  name               = "student-management-irsa-role"
-  assume_role_policy = data.aws_iam_policy_document.irsa_assume.json
-
-  inline_policy {
-    name   = "student-management-irsa-policy"
-    policy = data.aws_iam_policy_document.irsa_permissions.json
-  }
-
-  tags = merge(local.common_tags, {
-    Name = "student-management-irsa-role"
-  })
-}
-
 resource "aws_security_group" "eks_cluster" {
   name        = "student-eks-cluster-sg"
   description = "Security group for the EKS cluster"

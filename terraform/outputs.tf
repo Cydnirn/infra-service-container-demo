@@ -20,16 +20,6 @@ output "database_subnet_ids" {
   value       = aws_subnet.database[*].id
 }
 
-output "alb_dns_name" {
-  description = "DNS name of the Application Load Balancer for the backend"
-  value       = aws_lb.backend.dns_name
-}
-
-output "ecs_cluster_name" {
-  description = "Name of the ECS Fargate cluster"
-  value       = aws_ecs_cluster.main.name
-}
-
 output "ecr_backend_repository_url" {
   description = "URL of the ECR repository for the backend image"
   value       = aws_ecr_repository.backend.repository_url
@@ -103,9 +93,4 @@ output "acm_certificate_arn" {
 output "db_secret_arn" {
   description = "ARN of the Secrets Manager secret for database credentials"
   value       = aws_secretsmanager_secret.db_credentials.arn
-}
-
-output "irsa_role_arn" {
-  description = "ARN of the IRSA IAM role for EKS pods"
-  value       = aws_iam_role.irsa.arn
 }

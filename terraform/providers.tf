@@ -63,18 +63,6 @@ variable "db_master_password" {
   sensitive   = true
 }
 
-variable "cognito_callback_urls" {
-  description = "List of allowed callback URLs for the Cognito app client"
-  type        = list(string)
-  default     = ["http://localhost:3000/"]
-}
-
-variable "cognito_logout_urls" {
-  description = "List of allowed logout URLs for the Cognito app client"
-  type        = list(string)
-  default     = ["http://localhost:3000/"]
-}
-
 # Backend configuration variables — documented for reference.
 # These are NOT used directly in the backend block above
 # (Terraform does not support variables in backend config).

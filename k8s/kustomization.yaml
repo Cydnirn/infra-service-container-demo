@@ -28,23 +28,23 @@ configMapGenerator:
   - name: student-backend-config
     literals:
       # RDS (PostgreSQL via RDS Proxy)
-      - DB_HOST=REPLACE_WITH_RDS_PROXY_ENDPOINT
+      - DB_HOST=student-management-postgres.cctsbkfnu57a.us-east-1.rds.amazonaws.com
       - DB_PORT=5432
       - DB_NAME=student_management
       # DocumentDB
       - DOCDB_DB_NAME=student_management
       - DOCDB_COLLECTION=notes
-      - DOCDB_CONNECTION_STRING=mongodb://REPLACE_WITH_DOCDB_ENDPOINT:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
+      - DOCDB_CONNECTION_STRING=mongodb://student-management-docdb.cluster-cctsbkfnu57a.us-east-1.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
       # Cognito
-      - COGNITO_USER_POOL_ID=REPLACE_WITH_COGNITO_USER_POOL_ID
-      - COGNITO_CLIENT_ID=REPLACE_WITH_COGNITO_CLIENT_ID
+      - COGNITO_USER_POOL_ID=us-east-1_Y7ITXZzl7
+      - COGNITO_CLIENT_ID=7330bovjvi1vjtk7j98fvvb26a
       - COGNITO_REGION=us-east-1
       # KMS
-      - KMS_KEY_ID=REPLACE_WITH_KMS_KEY_ARN
+      - KMS_KEY_ID=arn:aws:kms:us-east-1:284845684968:key/0208fa53-3654-47b1-9fdc-991fd0950736
       # AWS Region
       - AWS_REGION=us-east-1
       # DB Secret ARN (for Secrets Manager)
-      - DB_SECRET_ARN=REPLACE_WITH_DB_SECRET_ARN
+      - DB_SECRET_ARN=arn:aws:secretsmanager:us-east-1:284845684968:secret:student-management/db-credentials-RTuDO4
       # CORS
       - CORS_ALLOWED_ORIGIN=*
 

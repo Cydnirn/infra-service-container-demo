@@ -18,34 +18,16 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     # Replace with your actual ACM Certificate ARN from terraform output
-    alb.ingress.kubernetes.io/certificate-arn: REPLACE_WITH_ACM_CERTIFICATE_ARN
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:284845684968:certificate/2d7bc6d7-8054-4c6d-9b25-e9ce7368868b
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: "8080"
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-
-    # Backend routing
-    alb.ingress.kubernetes.io/actions.backend-routing: >
-      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"student-backend","servicePort":"8080"}]}}
 
 spec:
   rules:
     - http:
         paths:
           # Backend API
-          - path: /students
-            pathType: Prefix
-            backend:
-              service:
-                name: student-backend
-                port:
-                  number: 8080
-          - path: /healthz
-            pathType: Exact
-            backend:
-              service:
-                name: student-backend
-                port:
-                  number: 8080
           # Frontend (catch-all)
           - path: /
             pathType: Prefix

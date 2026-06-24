@@ -1,5 +1,6 @@
-# Frontend Service — ClusterIP (internal only).
-# All external traffic goes through the Ingress (ALB).
+# Frontend Service — LoadBalancer (external browser access).
+# After deploying, find the external URL with:
+#   kubectl get svc student-frontend -n student-management
 apiVersion: v1
 kind: Service
 metadata:

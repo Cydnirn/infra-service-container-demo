@@ -61,17 +61,31 @@ func NewCognitoAuth(region, userPoolID, clientID string) *CognitoAuth {
 }
 
 // Middleware returns an HTTP middleware that validates Cognito JWT tokens.
+// Tokens are accepted from either:
+//  1. Authorization: Bearer <token> header (preferred)
+//  2. auth_token cookie (fallback for client-side fetch with credentials)
 func (c *CognitoAuth) Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString := ""
+
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			httputil.WriteError(w, http.StatusUnauthorized, "missing authorization header")
-			return
+		if authHeader != "" {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenString == authHeader {
+				httputil.WriteError(w, http.StatusUnauthorized, "authorization header must start with Bearer")
+				return
+			}
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			httputil.WriteError(w, http.StatusUnauthorized, "authorization header must start with Bearer")
+		// Fallback: read token from auth_token cookie (client-side fetch)
+		if tokenString == "" {
+			if cookie, err := r.Cookie("auth_token"); err == nil {
+				tokenString = cookie.Value
+			}
+		}
+
+		if tokenString == "" {
+			httputil.WriteError(w, http.StatusUnauthorized, "missing authorization header")
 			return
 		}
 

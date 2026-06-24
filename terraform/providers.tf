@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.5.0"
 
   backend "s3" {
-    bucket       = "student-management-terraform-284845684968-us-east-1-an"
+    bucket       = "student-management-terraform-857333833267-us-east-1-an"
     key          = "student-management/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true

@@ -58,15 +58,15 @@ output "rds_proxy_endpoint" {
   value       = aws_db_proxy.postgres.endpoint
 }
 
-output "docdb_endpoint" {
-  description = "DocumentDB cluster endpoint"
-  value       = aws_docdb_cluster.main.endpoint
-}
+# output "docdb_endpoint" {
+#   description = "DocumentDB cluster endpoint"
+#   value       = aws_docdb_cluster.main.endpoint
+# }
 
-output "docdb_reader_endpoint" {
-  description = "DocumentDB cluster reader endpoint"
-  value       = aws_docdb_cluster.main.reader_endpoint
-}
+# output "docdb_reader_endpoint" {
+#   description = "DocumentDB cluster reader endpoint"
+#   value       = aws_docdb_cluster.main.reader_endpoint
+# }
 
 # ── Security Outputs ───────────────────────────────────────
 

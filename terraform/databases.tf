@@ -99,56 +99,56 @@ resource "aws_db_proxy_target" "postgres" {
 # Stores unstructured student notes/academic remarks.
 # ───────────────────────────────────────────────────────────
 
-resource "aws_docdb_cluster" "main" {
-  cluster_identifier     = "student-management-docdb"
-  engine                 = "docdb"
-  engine_version         = "5.0.0"
-  master_username        = var.db_master_username
-  master_password        = var.db_master_password
-  db_subnet_group_name   = aws_docdb_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.database.id]
+# resource "aws_docdb_cluster" "main" {
+#   cluster_identifier     = "student-management-docdb"
+#   engine                 = "docdb"
+#   engine_version         = "5.0.0"
+#   master_username        = var.db_master_username
+#   master_password        = var.db_master_password
+#   db_subnet_group_name   = aws_docdb_subnet_group.main.name
+#   vpc_security_group_ids = [aws_security_group.database.id]
 
-  db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.main.name
+#   db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.main.name
 
-  skip_final_snapshot          = true
-  backup_retention_period      = 7
-  preferred_backup_window      = "03:00-04:00"
-  preferred_maintenance_window = "sun:04:00-sun:05:00"
+#   skip_final_snapshot          = true
+#   backup_retention_period      = 7
+#   preferred_backup_window      = "03:00-04:00"
+#   preferred_maintenance_window = "sun:04:00-sun:05:00"
 
-  storage_encrypted = true
+#   storage_encrypted = true
 
-  tags = {
-    Name        = "student-management-docdb"
-    Environment = var.environment
-  }
-}
+#   tags = {
+#     Name        = "student-management-docdb"
+#     Environment = var.environment
+#   }
+# }
 
-resource "aws_docdb_cluster_instance" "main" {
-  count              = 1
-  identifier         = "student-management-docdb-${count.index}"
-  cluster_identifier = aws_docdb_cluster.main.id
-  instance_class     = "db.t3.medium"
+# resource "aws_docdb_cluster_instance" "main" {
+#   count              = 1
+#   identifier         = "student-management-docdb-${count.index}"
+#   cluster_identifier = aws_docdb_cluster.main.id
+#   instance_class     = "db.t3.medium"
 
-  tags = {
-    Name        = "student-management-docdb-${count.index}"
-    Environment = var.environment
-  }
-}
+#   tags = {
+#     Name        = "student-management-docdb-${count.index}"
+#     Environment = var.environment
+#   }
+# }
 
-resource "aws_docdb_cluster_parameter_group" "main" {
-  family = "docdb5.0"
-  name   = "student-management-docdb-pg"
+# resource "aws_docdb_cluster_parameter_group" "main" {
+#   family = "docdb5.0"
+#   name   = "student-management-docdb-pg"
 
-  parameter {
-    name  = "tls"
-    value = "enabled"
-  }
+#   parameter {
+#     name  = "tls"
+#     value = "enabled"
+#   }
 
-  tags = {
-    Name        = "student-management-docdb-pg"
-    Environment = var.environment
-  }
-}
+#   tags = {
+#     Name        = "student-management-docdb-pg"
+#     Environment = var.environment
+#   }
+# }
 
 # ───────────────────────────────────────────────────────────
 # Security Group for Database Layer

@@ -1,12 +1,13 @@
 // Package docdb implements the Amazon DocumentDB (MongoDB API) driver
-// for storing unstructured student notes and academic remarks.
+// for storing KMS-encrypted student notes.
+// Database credentials are fetched from AWS Secrets Manager — never from
+// environment variables.
 package docdb
 
 import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 
 	"student-backend/internal/httputil"
 	"student-backend/internal/models"
+	"student-backend/internal/secrets"
 )
 
 // Store manages student notes in Amazon DocumentDB.
@@ -25,10 +27,16 @@ type Store struct {
 }
 
 // New creates a new Store connected to DocumentDB.
+// Credentials are fetched from AWS Secrets Manager.
 func New(ctx context.Context) (*Store, error) {
+	creds, err := secrets.FetchCredentials(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch DocumentDB credentials from Secrets Manager: %w", err)
+	}
+
 	uri := httputil.EnvOrDefault("DOCDB_CONNECTION_STRING", "mongodb://localhost:27017")
-	username := os.Getenv("DOCDB_USERNAME")
-	password := os.Getenv("DOCDB_PASSWORD")
+	username := creds.Username
+	password := creds.Password
 
 	clientOpts := options.Client().ApplyURI(uri).
 		SetRetryWrites(false).
@@ -59,6 +67,8 @@ func New(ctx context.Context) (*Store, error) {
 }
 
 // ListNotes returns all notes for the given student ID.
+// Note: Content is returned as KMS-encrypted ciphertext; decryption
+// is handled by the caller (handler layer).
 func (s *Store) ListNotes(ctx context.Context, studentID string) ([]models.Note, error) {
 	cursor, err := s.collection.Find(ctx, bson.M{"student_id": studentID})
 	if err != nil {
@@ -77,6 +87,7 @@ func (s *Store) ListNotes(ctx context.Context, studentID string) ([]models.Note,
 }
 
 // CreateNote inserts a new note. If note.ID is empty a new UUID is generated.
+// The Content field should already be KMS-encrypted ciphertext.
 func (s *Store) CreateNote(ctx context.Context, note models.Note) error {
 	if note.ID == "" {
 		note.ID = uuid.New().String()

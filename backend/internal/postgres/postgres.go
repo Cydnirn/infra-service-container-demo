@@ -1,4 +1,6 @@
 // Package postgres implements the RDS (PostgreSQL) driver for student records.
+// Database credentials are fetched from AWS Secrets Manager — never from
+// environment variables.
 package postgres
 
 import (
@@ -15,6 +17,7 @@ import (
 
 	"student-backend/internal/httputil"
 	"student-backend/internal/models"
+	"student-backend/internal/secrets"
 )
 
 // Store manages student records in Amazon RDS (PostgreSQL).
@@ -23,14 +26,20 @@ type Store struct {
 }
 
 // New creates a new Store, connects to PostgreSQL via the RDS Proxy,
-// and runs migrations. Retries for up to 2 minutes to allow the proxy
+// and runs migrations. Credentials are fetched from AWS Secrets Manager.
+// Retries for up to 2 minutes to allow the proxy
 // to finish initializing and DNS records to propagate.
-func New() (*Store, error) {
-	host := httputil.EnvOrDefault("DB_HOST", "localhost")
-	port := httputil.EnvOrDefault("DB_PORT", "5432")
-	user := httputil.EnvOrDefault("DB_USERNAME", "postgres")
-	password := httputil.EnvOrDefault("DB_PASSWORD", "postgres")
-	dbname := httputil.EnvOrDefault("DB_NAME", "student_management")
+func New(ctx context.Context) (*Store, error) {
+	creds, err := secrets.FetchCredentials(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch RDS credentials from Secrets Manager: %w", err)
+	}
+
+	host := httputil.EnvOrDefault("DB_HOST", creds.Host)
+	port := fmt.Sprintf("%d", creds.Port)
+	user := creds.Username
+	password := creds.Password
+	dbname := creds.DBName
 
 	log.Printf("Connecting to PostgreSQL: host=%s port=%s user=%s dbname=%s",
 		host, port, user, dbname)

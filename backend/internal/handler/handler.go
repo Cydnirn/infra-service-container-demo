@@ -1,5 +1,7 @@
 // Package handler wires HTTP routes to the domain stores and exposes
 // a single RegisterRoutes method that attaches all endpoints to a ServeMux.
+// Authentication is handled by Amazon Cognito JWTs validated in middleware.
+// Note content is encrypted/decrypted via AWS KMS before storage/retrieval.
 package handler
 
 import (
@@ -9,21 +11,21 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 
 	"student-backend/internal/auth"
+	"student-backend/internal/crypto"
 	"student-backend/internal/docdb"
-	"student-backend/internal/dynamo"
 	"student-backend/internal/httputil"
 	"student-backend/internal/models"
 	"student-backend/internal/postgres"
 )
 
-// Server holds references to all data stores needed by the HTTP handlers.
+// Server holds references to all data stores and services needed by handlers.
 type Server struct {
-	PG     *postgres.Store
-	DocDB  *docdb.Store
-	Dynamo *dynamo.Store
+	PG        *postgres.Store
+	DocDB     *docdb.Store
+	Encryptor *crypto.Encryptor
+	Auth      *auth.CognitoAuth
 }
 
 // RegisterRoutes attaches all API endpoints to the provided ServeMux.
@@ -35,58 +37,16 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// ── Public ──────────────────────────────────────────────
-	mux.HandleFunc("POST /login", s.handleLogin)
-
 	// ── Students (RDS) ──────────────────────────────────────
-	mux.HandleFunc("GET /students", auth.Middleware(s.handleListStudents))
-	mux.HandleFunc("GET /students/{id}", auth.Middleware(s.handleGetStudent))
-	mux.HandleFunc("POST /students", auth.Middleware(s.handleCreateStudent))
-	mux.HandleFunc("PUT /students/{id}", auth.Middleware(s.handleUpdateStudent))
-	mux.HandleFunc("DELETE /students/{id}", auth.Middleware(s.handleDeleteStudent))
+	mux.HandleFunc("GET /students", s.Auth.Middleware(s.handleListStudents))
+	mux.HandleFunc("GET /students/{id}", s.Auth.Middleware(s.handleGetStudent))
+	mux.HandleFunc("POST /students", s.Auth.Middleware(s.handleCreateStudent))
+	mux.HandleFunc("PUT /students/{id}", s.Auth.Middleware(s.handleUpdateStudent))
+	mux.HandleFunc("DELETE /students/{id}", s.Auth.Middleware(s.handleDeleteStudent))
 
-	// ── Notes (DocumentDB) ──────────────────────────────────
-	mux.HandleFunc("GET /students/{id}/notes", auth.Middleware(s.handleListNotes))
-	mux.HandleFunc("POST /students/{id}/notes", auth.Middleware(s.handleCreateNote))
-}
-
-// ── Login handler ────────────────────────────────────────────
-
-func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	var req models.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Username == "" || req.Password == "" {
-		httputil.WriteError(w, http.StatusBadRequest, "username and password are required")
-		return
-	}
-
-	user, err := s.Dynamo.GetUser(r.Context(), req.Username)
-	if err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, "invalid credentials")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.PasswordHash), []byte(req.Password),
-	); err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, "invalid credentials")
-		return
-	}
-
-	token, err := auth.GenerateToken()
-	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, "failed to generate session token")
-		return
-	}
-	auth.StoreSession(token, req.Username)
-
-	httputil.WriteJSON(w, http.StatusOK, models.LoginResponse{
-		Token:   token,
-		Message: "login successful",
-	})
+	// ── Notes (DocumentDB + KMS) ────────────────────────────
+	mux.HandleFunc("GET /students/{id}/notes", s.Auth.Middleware(s.handleListNotes))
+	mux.HandleFunc("POST /students/{id}/notes", s.Auth.Middleware(s.handleCreateNote))
 }
 
 // ── Student handlers (RDS) ───────────────────────────────────
@@ -155,36 +115,64 @@ func (s *Server) handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ── Note handlers (DocumentDB) ────────────────────────────────
+// ── Note handlers (DocumentDB + KMS) ──────────────────────────
 
 func (s *Server) handleListNotes(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	notes, err := s.DocDB.ListNotes(r.Context(), id)
-	log.Default().Printf("list notes for student %s", id)
-	log.Default().Printf("notes: %v", notes)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError,
 			"failed to list notes: "+err.Error())
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, notes)
+
+	// Decrypt each note's content via KMS before returning to client.
+	decryptedNotes := make([]models.Note, 0, len(notes))
+	for _, note := range notes {
+		plaintext, err := s.Encryptor.Decrypt(r.Context(), note.Content)
+		if err != nil {
+			log.Printf("failed to decrypt note %s: %v", note.ID, err)
+			httputil.WriteError(w, http.StatusInternalServerError,
+				"failed to decrypt note content")
+			return
+		}
+		note.Content = plaintext
+		decryptedNotes = append(decryptedNotes, note)
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, decryptedNotes)
 }
 
 func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 	studentID := r.PathValue("id")
-	log.Default().Printf("creating note for student %s", studentID)
-	log.Default().Printf("note content: %s", r.Body)
 	var note models.Note
 	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	note.StudentID = studentID
+
+	// Encrypt the note content via KMS before storing in DocumentDB.
+	ciphertext, err := s.Encryptor.Encrypt(r.Context(), note.Content)
+	if err != nil {
+		log.Printf("failed to encrypt note: %v", err)
+		httputil.WriteError(w, http.StatusInternalServerError,
+			"failed to encrypt note content")
+		return
+	}
+	note.Content = ciphertext
+
 	if err := s.DocDB.CreateNote(r.Context(), note); err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError,
 			"failed to create note: "+err.Error())
 		return
 	}
-	log.Default().Printf("note created: %v", note)
+
+	// Return the decrypted content so the client sees plaintext.
+	note.Content = "" // The encrypted blob should not be returned.
+	// Re-read the note to get the generated ID and timestamp, then return plaintext.
+	plaintext, _ := s.Encryptor.Decrypt(r.Context(), ciphertext)
+	note.Content = plaintext
+
 	httputil.WriteJSON(w, http.StatusCreated, note)
 }

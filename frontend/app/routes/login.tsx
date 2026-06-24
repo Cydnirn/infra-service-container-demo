@@ -18,7 +18,9 @@ export async function action({ request }: Route.ActionArgs) {
   try {
     const data = await cognitoLogin(username, password);
     // Store the Cognito Access Token in an HttpOnly cookie.
-    // The token is validated by the backend's Cognito JWT middleware.
+    // SSR loaders read it from the request Cookie header.
+    // Client-side fetch sends it automatically via credentials: "include".
+    // Backend middleware reads it from Authorization header OR cookie.
     return redirect("/dashboard", {
       headers: {
         "Set-Cookie": `auth_token=${data.accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`,

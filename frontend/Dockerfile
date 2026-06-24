@@ -25,8 +25,8 @@ COPY --from=builder /app/package.json ./
 ENV API_URL=http://student-backend:8080
 
 # Cognito configuration (override at deploy time)
-ENV COGNITO_USER_POOL_ID=REPLACE_WITH_COGNITO_USER_POOL_ID
-ENV COGNITO_CLIENT_ID=REPLACE_WITH_COGNITO_CLIENT_ID
+ENV COGNITO_USER_POOL_ID=us-east-1_Y7ITXZzl7
+ENV COGNITO_CLIENT_ID=7330bovjvi1vjtk7j98fvvb26a
 
 ENV PORT=80
 ENV NODE_ENV=production

@@ -6,7 +6,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   try {
     const student = await fetchStudent(params.id, request);
     return { student };
-  } catch {
+  } catch (err) {
+    console.error("[edit student loader] Failed:", err);
     return redirect("/");
   }
 }

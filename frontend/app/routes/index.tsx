@@ -6,8 +6,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     const students = await fetchStudents(request);
     return { students };
-  } catch {
-    // Auth failed — redirect to login
+  } catch (err) {
+    console.error("[dashboard loader] Failed to fetch students:", err);
+    // Auth failed or network error — redirect to login
     return redirect("/");
   }
 }

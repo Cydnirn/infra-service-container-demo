@@ -15,7 +15,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       fetchNotes(params.id, request),
     ]);
     return { student, notes };
-  } catch {
+  } catch (err) {
+    console.error("[student detail loader] Failed:", err);
     return redirect("/");
   }
 }

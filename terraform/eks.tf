@@ -1,4 +1,4 @@
-# EKS cluster and managed node group
+# EKS cluster and managed node group with IRSA
 
 resource "aws_eks_cluster" "main" {
   name     = "student-management-eks"
@@ -39,6 +39,62 @@ resource "aws_eks_node_group" "main" {
     Name        = "student-management-node-group"
     Environment = var.environment
   }
+}
+
+# ───────────────────────────────────────────────────────────
+# IRSA — IAM Role for Service Account
+# Allows backend pods to call KMS (encrypt/decrypt) and
+# Secrets Manager (get secret value) without static credentials.
+# ───────────────────────────────────────────────────────────
+
+data "aws_iam_policy_document" "irsa_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [aws_eks_cluster.main.identity[0].oidc[0].issuer]
+    }
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:student-management:student-backend-sa"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "irsa_permissions" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:DescribeKey",
+    ]
+    resources = [aws_kms_key.notes.arn]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [aws_secretsmanager_secret.db_credentials.arn]
+  }
+}
+
+resource "aws_iam_role" "irsa" {
+  name               = "student-management-irsa-role"
+  assume_role_policy = data.aws_iam_policy_document.irsa_assume.json
+
+  inline_policy {
+    name   = "student-management-irsa-policy"
+    policy = data.aws_iam_policy_document.irsa_permissions.json
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "student-management-irsa-role"
+  })
 }
 
 resource "aws_security_group" "eks_cluster" {

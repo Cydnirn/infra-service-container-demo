@@ -43,18 +43,26 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "DOCDB_CONNECTION_STRING", value = "mongodb://${aws_docdb_cluster.main.endpoint}:27017/?tls=true&tlsCAFile=/usr/local/share/ca-certificates/rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false" },
         { name = "DOCDB_DB_NAME", value = "student_management" },
         { name = "DOCDB_COLLECTION", value = "notes" },
-        # DynamoDB
-        { name = "DYNAMODB_TABLE_NAME", value = aws_dynamodb_table.users.name },
+        # Cognito
+        { name = "COGNITO_USER_POOL_ID", value = aws_cognito_user_pool.main.id },
+        { name = "COGNITO_CLIENT_ID", value = aws_cognito_user_pool_client.main.id },
+        { name = "COGNITO_REGION", value = var.aws_region },
+        # KMS
+        { name = "KMS_KEY_ID", value = aws_kms_key.notes.arn },
         # CORS
         { name = "CORS_ALLOWED_ORIGIN", value = "*" },
+        # AWS Region (for AWS SDK)
+        { name = "AWS_REGION", value = var.aws_region },
+        # DB Secret ARN (for Secrets Manager)
+        { name = "DB_SECRET_ARN", value = aws_secretsmanager_secret.db_credentials.arn },
         # Port
         { name = "PORT", value = "8080" },
       ]
       secrets = [
-        { name = "DB_USERNAME", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:username::" },
-        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:password::" },
-        { name = "DOCDB_USERNAME", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:username::" },
-        { name = "DOCDB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.rds_credentials.arn}:password::" },
+        { name = "DB_USERNAME", valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:username::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:password::" },
+        { name = "DOCDB_USERNAME", valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:username::" },
+        { name = "DOCDB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:password::" },
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -121,7 +129,7 @@ resource "aws_lb_target_group" "backend" {
   target_type = "ip"
 
   health_check {
-    path                = "/students"
+    path                = "/healthz"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
@@ -137,13 +145,17 @@ resource "aws_lb_target_group" "backend" {
 
 resource "aws_lb_listener" "backend" {
   load_balancer_arn = aws_lb.backend.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate.main.arn
+  ssl_policy        = "ELBSecurityPolicy-2016-08" # Requires HTTPS listener
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.backend.arn
   }
+
+  depends_on = [aws_acm_certificate.main]
 }
 
 resource "aws_security_group" "alb" {
@@ -152,8 +164,8 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

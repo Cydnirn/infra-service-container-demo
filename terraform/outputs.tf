@@ -78,7 +78,34 @@ output "docdb_reader_endpoint" {
   value       = aws_docdb_cluster.main.reader_endpoint
 }
 
-output "dynamodb_table_name" {
-  description = "DynamoDB users table name"
-  value       = aws_dynamodb_table.users.name
+# ── Security Outputs ───────────────────────────────────────
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = aws_cognito_user_pool.main.id
+}
+
+output "cognito_client_id" {
+  description = "Cognito App Client ID"
+  value       = aws_cognito_user_pool_client.main.id
+}
+
+output "kms_key_arn" {
+  description = "ARN of the KMS key used for note encryption"
+  value       = aws_kms_key.notes.arn
+}
+
+output "acm_certificate_arn" {
+  description = "ARN of the ACM certificate for HTTPS"
+  value       = aws_acm_certificate.main.arn
+}
+
+output "db_secret_arn" {
+  description = "ARN of the Secrets Manager secret for database credentials"
+  value       = aws_secretsmanager_secret.db_credentials.arn
+}
+
+output "irsa_role_arn" {
+  description = "ARN of the IRSA IAM role for EKS pods"
+  value       = aws_iam_role.irsa.arn
 }

@@ -1,35 +1,6 @@
 # VPC Endpoints for AWS services accessed from private subnets
 
-# DynamoDB Gateway Endpoint (free, routes DynamoDB traffic through the VPC)
-resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.aws_region}.dynamodb"
-  vpc_endpoint_type = "Gateway"
-  route_table_ids   = [aws_route_table.private.id]
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = "*"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:Query",
-          "dynamodb:Scan",
-        ]
-        Resource = "${aws_dynamodb_table.users.arn}"
-      }
-    ]
-  })
-
-  tags = {
-    Name        = "student-management-dynamodb-vpce"
-    Environment = var.environment
-  }
-}
-
-# Secrets Manager VPC Endpoint (for ECS to retrieve secrets from private subnets)
+# Secrets Manager VPC Endpoint (for ECS/EKS to retrieve secrets from private subnets)
 resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
@@ -40,6 +11,38 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 
   tags = {
     Name        = "student-management-secretsmanager-vpce"
+    Environment = var.environment
+  }
+}
+
+# KMS VPC Endpoint (for encrypt/decrypt calls from private subnets)
+resource "aws_vpc_endpoint" "kms" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.kms"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name        = "student-management-kms-vpce"
+    Environment = var.environment
+  }
+}
+
+# Cognito VPC Endpoint (not strictly needed for token validation
+# since JWKS is fetched over the public internet, but included for
+# private subnets that need to reach Cognito APIs)
+resource "aws_vpc_endpoint" "cognito" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.cognito-idp"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name        = "student-management-cognito-vpce"
     Environment = var.environment
   }
 }

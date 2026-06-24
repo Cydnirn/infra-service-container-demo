@@ -58,7 +58,7 @@ resource "aws_db_proxy" "postgres" {
   auth {
     auth_scheme = "SECRETS"
     iam_auth    = "DISABLED"
-    secret_arn  = aws_secretsmanager_secret.rds_credentials.arn
+    secret_arn  = aws_secretsmanager_secret.db_credentials.arn
   }
 
   tags = {
@@ -70,7 +70,7 @@ resource "aws_db_proxy" "postgres" {
   # Without the secret version the Proxy starts with no credentials.
   depends_on = [
     aws_db_instance.postgres,
-    aws_secretsmanager_secret_version.rds_credentials,
+    aws_secretsmanager_secret_version.db_credentials,
   ]
 }
 
@@ -90,28 +90,9 @@ resource "aws_db_proxy_target" "postgres" {
   db_instance_identifier = aws_db_instance.postgres.identifier
 }
 
-# Secrets Manager for RDS credentials (used by RDS Proxy)
-resource "aws_secretsmanager_secret" "rds_credentials" {
-  name_prefix = "student-management/rds-credentials"
-
-  tags = {
-    Name        = "student-management-rds-credentials"
-    Environment = var.environment
-  }
-}
-
-resource "aws_secretsmanager_secret_version" "rds_credentials" {
-  secret_id = aws_secretsmanager_secret.rds_credentials.id
-  secret_string = jsonencode({
-    username             = var.db_master_username
-    password             = var.db_master_password
-    engine               = "postgres"
-    host                 = aws_db_instance.postgres.address
-    port                 = 5432
-    dbname               = aws_db_instance.postgres.db_name
-    dbInstanceIdentifier = aws_db_instance.postgres.identifier
-  })
-}
+# The DB credentials secret for RDS Proxy is defined in security.tf
+# as aws_secretsmanager_secret.db_credentials.
+# The RDS Proxy references that secret for authentication.
 
 # ───────────────────────────────────────────────────────────
 # Amazon DocumentDB (MongoDB API compatible)
@@ -165,33 +146,6 @@ resource "aws_docdb_cluster_parameter_group" "main" {
 
   tags = {
     Name        = "student-management-docdb-pg"
-    Environment = var.environment
-  }
-}
-
-# ───────────────────────────────────────────────────────────
-# Amazon DynamoDB
-# Stores user authentication and session details.
-# ───────────────────────────────────────────────────────────
-
-resource "aws_dynamodb_table" "users" {
-  name         = "users"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "username"
-
-  attribute {
-    name = "username"
-    type = "S"
-  }
-
-  # PITR is automatically enabled for tables in PAY_PER_REQUEST mode,
-  # but we enable server-side encryption explicitly.
-  server_side_encryption {
-    enabled = true
-  }
-
-  tags = {
-    Name        = "users"
     Environment = var.environment
   }
 }

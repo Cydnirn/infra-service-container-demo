@@ -1,6 +1,14 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  backend "s3" {
+    bucket       = "student-management-terraform-284845684968-us-east-1-an"
+    key          = "student-management/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -9,6 +17,10 @@ terraform {
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
     }
   }
 }
@@ -49,6 +61,18 @@ variable "db_master_password" {
   description = "Master password for RDS and DocumentDB"
   type        = string
   sensitive   = true
+}
+
+variable "cognito_callback_urls" {
+  description = "List of allowed callback URLs for the Cognito app client"
+  type        = list(string)
+  default     = ["http://localhost:3000/"]
+}
+
+variable "cognito_logout_urls" {
+  description = "List of allowed logout URLs for the Cognito app client"
+  type        = list(string)
+  default     = ["http://localhost:3000/"]
 }
 
 # Backend configuration variables — documented for reference.
